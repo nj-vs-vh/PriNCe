@@ -1,22 +1,21 @@
 """Module inteded to contain some prince-specific data structures."""
-import pickle as pickle
+
 import os.path as path
+import pickle as pickle
+
+import h5py
 import numpy as np
 import scipy.constants as spc
-import h5py
 
-
-from prince_cr.util import convert_to_namedtuple, info
 import prince_cr.config as config
+from prince_cr.util import convert_to_namedtuple, info
 
 #: Dictionary containing particle properties, like mass, charge
 #: lifetime or branching ratios
 try:
-    spec_data = pickle.load(
-        open(path.join(config.data_dir, "particle_data.ppo"), "rb"))
+    spec_data = pickle.load(open(path.join(config.data_dir, "particle_data.ppo"), "rb"))
 except UnicodeDecodeError:
-    spec_data = pickle.load(
-        open(path.join(config.data_dir, "particle_data.ppo"), "rb"), encoding='latin1')
+    spec_data = pickle.load(open(path.join(config.data_dir, "particle_data.ppo"), "rb"), encoding="latin1")
 except FileNotFoundError:
     info(0, 'Warning, particle database "particle_data.ppo" file not found.')
 
@@ -30,43 +29,43 @@ except FileNotFoundError:
 
 UNITS_AND_CONVERSIONS_DEF = dict(
     c=1e2 * spc.c,
-    cm2Mpc=1. / (spc.parsec * spc.mega * 1e2),
+    cm2Mpc=1.0 / (spc.parsec * spc.mega * 1e2),
     Mpc2cm=spc.mega * spc.parsec * 1e2,
-    m_proton=spc.physical_constants['proton mass energy equivalent in MeV'][0]
-    * 1e-3,
-    m_electron=spc.physical_constants['electron mass energy equivalent in MeV']
-    [0] * 1e-3,
-    r_electron=spc.physical_constants['classical electron radius'][0] * 1e2,
+    m_proton=spc.physical_constants["proton mass energy equivalent in MeV"][0] * 1e-3,
+    m_electron=spc.physical_constants["electron mass energy equivalent in MeV"][0] * 1e-3,
+    r_electron=spc.physical_constants["classical electron radius"][0] * 1e2,
     fine_structure=spc.fine_structure,
-    GeV2erg=1. / 624.15,
+    GeV2erg=1.0 / 624.15,
     erg2GeV=624.15,
     km2cm=1e5,
     yr2sec=spc.year,
     Gyr2sec=spc.giga * spc.year,
     cm2sec=1e-2 / spc.c,
-    sec2cm=spc.c * 1e2)
+    sec2cm=spc.c * 1e2,
+)
 
 # This is the immutable unit object to be imported throughout the code
 PRINCE_UNITS = convert_to_namedtuple(UNITS_AND_CONVERSIONS_DEF, "PriNCeUnits")
 
 
-class ebl_interpolator(object):
+class ebl_interpolator:
     """Provides an interpolator to replace previously used interp2d.
 
     To be used in the class PrinceDB below, in the function ebl_spline.
     """
+
     def __init__(self, spline_grid):
         from scipy.interpolate import RectBivariateSpline
 
-        Z = np.array(spline_grid['z']).T
-        
-        if np.all(np.diff(spline_grid['x']) > 0):
+        Z = np.array(spline_grid["z"]).T
+
+        if np.all(np.diff(spline_grid["x"]) > 0):
             # increasing values
-            interp2d_transposed = RectBivariateSpline(spline_grid['x'], spline_grid['y'], Z)
-        elif np.all(np.diff(spline_grid['x']) < 0):
+            interp2d_transposed = RectBivariateSpline(spline_grid["x"], spline_grid["y"], Z)
+        elif np.all(np.diff(spline_grid["x"]) < 0):
             # decreasing values
-            X = np.array(spline_grid['x'])
-            interp2d_transposed = RectBivariateSpline(X[::-1], spline_grid['y'], Z[::-1, :])
+            X = np.array(spline_grid["x"])
+            interp2d_transposed = RectBivariateSpline(X[::-1], spline_grid["y"], Z[::-1, :])
 
         self._interpolator = interp2d_transposed
 
@@ -74,7 +73,7 @@ class ebl_interpolator(object):
         return self._interpolator(xval, yval).T.squeeze()
 
 
-class PrinceDB(object):
+class PrinceDB:
     """Provides access to data stored in an HDF5 file.
 
     The file contains all tables for runnin PriNCe. Currently
@@ -85,64 +84,69 @@ class PrinceDB(object):
     """
 
     def __init__(self):
-
-        info(2, 'Opening HDF5 file', config.db_fname)
+        info(2, "Opening HDF5 file", config.db_fname)
         self.prince_db_fname = path.join(config.data_dir, config.db_fname)
         if not path.isfile(self.prince_db_fname):
-            raise Exception(
-                'Prince DB file {0} not found in "data" directory.'.format(
-                    config.db_fname))
+            raise Exception(f'Prince DB file {config.db_fname} not found in "data" directory.')
 
-        with h5py.File(self.prince_db_fname, 'r') as prince_db:
-            self.version = (prince_db.attrs['version'])
+        with h5py.File(self.prince_db_fname, "r") as prince_db:
+            self.version = prince_db.attrs["version"]
 
     def _check_subgroup_exists(self, subgroup, mname):
         available_models = list(subgroup)
         if mname not in available_models:
-            info(0, 'Invalid choice/model', mname)
-            info(0, 'Choose from:\n', '\n'.join(available_models))
-            raise Exception('Unknown selections.')
+            info(0, "Invalid choice/model", mname)
+            info(0, "Choose from:\n", "\n".join(available_models))
+            raise Exception("Unknown selections.")
 
     def photo_nuclear_db(self, model_tag):
-        info(10, 'Reading photo-nuclear db. tag={0}'.format(model_tag))
+        info(10, f"Reading photo-nuclear db. tag={model_tag}")
         db_entry = {}
-        with h5py.File(self.prince_db_fname, 'r') as prince_db:
-            self._check_subgroup_exists(prince_db['photo_nuclear'],
-                                        model_tag)
-            for entry in ['energy_grid', 'fragment_yields', 'inel_mothers',
-                          'inelastic_cross_sctions', 'mothers_daughters']:
-                info(10, 'Reading entry {0} from db.'.format(entry))
-                db_entry[entry] = prince_db['photo_nuclear'][model_tag][entry][:]
+        with h5py.File(self.prince_db_fname, "r") as prince_db:
+            self._check_subgroup_exists(prince_db["photo_nuclear"], model_tag)
+            for entry in [
+                "energy_grid",
+                "fragment_yields",
+                "inel_mothers",
+                "inelastic_cross_sctions",
+                "mothers_daughters",
+            ]:
+                info(10, f"Reading entry {entry} from db.")
+                db_entry[entry] = prince_db["photo_nuclear"][model_tag][entry][:]
         return db_entry
 
     def photo_meson_db(self, model_tag):
-        info(10, 'Reading photo-nuclear db. tag={0}'.format(model_tag))
+        info(10, f"Reading photo-nuclear db. tag={model_tag}")
         db_entry = {}
-        with h5py.File(self.prince_db_fname, 'r') as prince_db:
-            self._check_subgroup_exists(prince_db['photo_nuclear'],
-                                        model_tag)
-            for entry in ['energy_grid', 'xbins', 'fragment_yields', 'inel_mothers',
-                          'inelastic_cross_sctions', 'mothers_daughters']:
-                info(10, 'Reading entry {0} from db.'.format(entry))
-                db_entry[entry] = prince_db['photo_nuclear'][model_tag][entry][:]
+        with h5py.File(self.prince_db_fname, "r") as prince_db:
+            self._check_subgroup_exists(prince_db["photo_nuclear"], model_tag)
+            for entry in [
+                "energy_grid",
+                "xbins",
+                "fragment_yields",
+                "inel_mothers",
+                "inelastic_cross_sctions",
+                "mothers_daughters",
+            ]:
+                info(10, f"Reading entry {entry} from db.")
+                db_entry[entry] = prince_db["photo_nuclear"][model_tag][entry][:]
         return db_entry
 
-    def ebl_spline(self, model_tag, subset='base'):
-        
-        info(10, 'Reading EBL field splines. tag={0}'.format(model_tag))
-        with h5py.File(self.prince_db_fname, 'r') as prince_db:
-            self._check_subgroup_exists(prince_db['EBL_models'],
-                                        model_tag)
-            self._check_subgroup_exists(prince_db['EBL_models'][model_tag],
-                                        subset)
-            spl_gr = prince_db['EBL_models'][model_tag][subset]
+    def ebl_spline(self, model_tag, subset="base"):
+        info(10, f"Reading EBL field splines. tag={model_tag}")
+        with h5py.File(self.prince_db_fname, "r") as prince_db:
+            self._check_subgroup_exists(prince_db["EBL_models"], model_tag)
+            self._check_subgroup_exists(prince_db["EBL_models"][model_tag], subset)
+            spl_gr = prince_db["EBL_models"][model_tag][subset]
 
             return ebl_interpolator(spl_gr)
+
 
 #: db_handler is the HDF file interface
 db_handler = PrinceDB()
 
-class EnergyGrid(object):
+
+class EnergyGrid:
     """Class for constructing a grid for discrete distributions.
 
     Since we discretize everything in energy, the name seems appropriate.
@@ -155,17 +159,17 @@ class EnergyGrid(object):
     """
 
     def __init__(self, lower, upper, bins_dec):
-        self.bins = np.logspace(lower, upper,
-                                int((upper - lower) * bins_dec + 1))
+        self.bins = np.logspace(lower, upper, int((upper - lower) * bins_dec + 1))
         self.grid = 0.5 * (self.bins[1:] + self.bins[:-1])
         self.widths = self.bins[1:] - self.bins[:-1]
         self.d = self.grid.size
         info(
-            5, 'Energy grid initialized {0:3.1e} - {1:3.1e}, {2} bins'.format(
-                self.bins[0], self.bins[-1], self.grid.size))
+            5,
+            f"Energy grid initialized {self.bins[0]:3.1e} - {self.bins[-1]:3.1e}, {self.grid.size} bins",
+        )
 
 
-class PrinceSpecies(object):
+class PrinceSpecies:
     """Bundles different particle properties for simplified
     availability of particle properties in :class:`prince_cr.core.PriNCeRun`.
 
@@ -174,6 +178,7 @@ class PrinceSpecies(object):
       particle_db (object): a dictionary with particle properties
       d (int): dimension of the energy grid
     """
+
     @staticmethod
     def calc_AZN(nco_id):
         """Returns mass number :math:`A`, charge :math:`Z` and neutron
@@ -189,8 +194,7 @@ class PrinceSpecies(object):
         return A, Z, A - Z
 
     def __init__(self, ncoid, princeidx, d):
-
-        info(5, 'Initializing new species', ncoid)
+        info(5, "Initializing new species", ncoid)
 
         #: Neucosma ID of particle
         self.ncoid = ncoid
@@ -229,7 +233,7 @@ class PrinceSpecies(object):
         self.princeidx = princeidx
 
         # (dict) Dimension of energy grids (for idx calculations)
-        self.grid_dims = {'default': d}
+        self.grid_dims = {"default": d}
 
         # Obtain values for the attributes
         self._init_species()
@@ -269,7 +273,7 @@ class PrinceSpecies(object):
 
         if "name" not in dbentry:
             info(5, "Name for species", ncoid, "not defined")
-            self.sname = "nucleus_{0}".format(ncoid)
+            self.sname = f"nucleus_{ncoid}"
         else:
             self.sname = dbentry["name"]
 
@@ -289,10 +293,10 @@ class PrinceSpecies(object):
           (slice): a slice object pointing to the species in the state vecgtor
         """
         idx = self.princeidx
-        dim = self.grid_dims['default']
+        dim = self.grid_dims["default"]
         return slice(idx * dim, (idx + 1) * dim)
 
-    def lidx(self, grid_tag='default'):
+    def lidx(self, grid_tag="default"):
         """Returns lower index of particle range in state vector.
 
         Returns:
@@ -300,7 +304,7 @@ class PrinceSpecies(object):
         """
         return self.princeidx * self.grid_dims[grid_tag]
 
-    def uidx(self, grid_tag='default'):
+    def uidx(self, grid_tag="default"):
         """Returns upper index of particle range in state vector.
 
         Returns:
@@ -308,7 +312,7 @@ class PrinceSpecies(object):
         """
         return (self.princeidx + 1) * self.grid_dims[grid_tag]
 
-    def lbin(self, grid_tag='default'):
+    def lbin(self, grid_tag="default"):
         """Returns lower bin of particle range in state vector.
 
         Returns:
@@ -316,7 +320,7 @@ class PrinceSpecies(object):
         """
         return self.princeidx * (self.grid_dims[grid_tag] + 1)
 
-    def ubin(self, grid_tag='default'):
+    def ubin(self, grid_tag="default"):
         """Returns upper bin of particle range in state vector.
 
         Returns:
@@ -324,7 +328,7 @@ class PrinceSpecies(object):
         """
         return (self.princeidx + 1) * (self.grid_dims[grid_tag] + 1)
 
-    def indices(self, grid_tag='default'):
+    def indices(self, grid_tag="default"):
         """Returns a list of all indices in the state vector.
 
         Returns:
@@ -335,12 +339,12 @@ class PrinceSpecies(object):
         return np.arange(idx * dim, (idx + 1) * dim)
 
 
-class SpeciesManager(object):
+class SpeciesManager:
     """Provides a database with particle and species."""
 
     def __init__(self, ncoid_list, ed):
         # (dict) Dimension of primary grid
-        self.grid_dims = {'default': ed}
+        self.grid_dims = {"default": ed}
         # Particle index shortcuts
         #: (dict) Converts Neucosma ID to index in state vector
         self.ncoid2princeidx = {}
@@ -378,19 +382,12 @@ class SpeciesManager(object):
         # Define position in state vector (princeidx) by simply
         # incrementing it with the (sorted) list of Neucosma IDs
         for princeidx, ncoid in enumerate(ncoid_list):
-            info(
-                4, "Appending species {0} at position {1}".format(
-                    ncoid, princeidx))
-            self.species_refs.append(
-                PrinceSpecies(ncoid, princeidx, self.grid_dims['default']))
+            info(4, f"Appending species {ncoid} at position {princeidx}")
+            self.species_refs.append(PrinceSpecies(ncoid, princeidx, self.grid_dims["default"]))
 
         self.known_species = [s.ncoid for s in self.species_refs]
-        self.redist_species = [
-            s.ncoid for s in self.species_refs if s.has_redist
-        ]
-        self.boost_conserv_species = [
-            s.ncoid for s in self.species_refs if not s.has_redist
-        ]
+        self.redist_species = [s.ncoid for s in self.species_refs if s.has_redist]
+        self.boost_conserv_species = [s.ncoid for s in self.species_refs if not s.has_redist]
 
     def _init_species_tables(self):
         for s in self.species_refs:
@@ -409,7 +406,7 @@ class SpeciesManager(object):
 
         Propagates changes to this variable to all known species.
         """
-        info(2, 'New grid_tag', grid_tag, 'with dimension', dimension)
+        info(2, "New grid_tag", grid_tag, "with dimension", dimension)
         self.grid_dims[grid_tag] = dimension
 
         for s in self.species_refs:
@@ -417,10 +414,10 @@ class SpeciesManager(object):
 
     def __repr__(self):
         str_out = ""
-        ident = 3 * ' '
+        ident = 3 * " "
         for s in self.species_refs:
-            str_out += s.sname + '\n' + ident
-            str_out += 'NCO id : ' + str(s.ncoid) + '\n' + ident
-            str_out += 'PriNCe idx : ' + str(s.princeidx) + '\n\n'
+            str_out += s.sname + "\n" + ident
+            str_out += "NCO id : " + str(s.ncoid) + "\n" + ident
+            str_out += "PriNCe idx : " + str(s.princeidx) + "\n\n"
 
         return str_out
