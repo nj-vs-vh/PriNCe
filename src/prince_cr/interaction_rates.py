@@ -12,7 +12,6 @@ using_cupy = False
 if config.has_cupy and config.linear_algebra_backend.lower() == "cupy":
     import cupy
 
-
     using_cupy = True
 
 

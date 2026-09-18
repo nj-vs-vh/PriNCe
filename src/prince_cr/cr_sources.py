@@ -71,7 +71,7 @@ class CosmicRaySource(metaclass=ABCMeta):
             lum_int[idx] = trapezoid(injec[mask] * egrid[mask], egrid[mask])
         return num_int, lum_int
 
-    def injection_rate(self, z):
+    def injection_rate(self, z: np.ndarray):
         """Returns the injection rate on the given self.cr_grid
 
         Args:
@@ -101,7 +101,7 @@ class CosmicRaySource(metaclass=ABCMeta):
     def injection_spectrum(self, pid, energy, params):
         """Prototype to be defined in each child class"""
 
-    def evolution(self, z):
+    def evolution(self, z) -> float:
         """Returns the source evolution function at given redshift
 
         Note: The source evolution will depend on self.source_evo_m
@@ -152,8 +152,10 @@ class CosmicRaySource(metaclass=ABCMeta):
                     return (1 + z) ** mval
                 else:
                     return (1 + 1) ** 3.6 * (1 + z) ** (mval - 3.6)
+            else:
+                raise ValueError(f"Unknown source evolution keyword: {mkwd}")
         else:
-            raise Exception(f"Unknown source evo type: {self.source_evo_m}")
+            raise ValueError(f"Unknown source evo type: {self.source_evo_m}")
 
 
 class SimpleSource(CosmicRaySource):

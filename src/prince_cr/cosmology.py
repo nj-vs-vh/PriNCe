@@ -7,7 +7,7 @@ import numpy as np
 import prince_cr.config as config
 
 
-def H(z, H0=config.H_0s):
+def H(z: np.ndarray, H0=config.H_0s):
     """Expansion rate of the universe.
 
     :math:`H(z) = H_0 \\sqrt{\\Omega_m (1 + z)^3 + \\Omega_\\Lambda}`
@@ -21,7 +21,7 @@ def H(z, H0=config.H_0s):
     return H0 * np.sqrt(config.Omega_m * (1 + z) ** 3 + config.Omega_Lambda)
 
 
-def star_formation_rate(z, z_inhom=0.0):
+def star_formation_rate(z: float, z_inhom: float = 0.0):
     """Returns the star formation rate, per comoving volume, evaluated at the specified redshift.
 
     Ref:
@@ -46,7 +46,7 @@ def star_formation_rate(z, z_inhom=0.0):
         return 10.0**6.66 * (1.0 + z) ** -7.8
 
 
-def grb_rate(z, z_inhom=0.0):
+def grb_rate(z: float, z_inhom: float = 0.0):
     """Returns the rate of Gamma-Ray Burst, per comoving volume, evaluated at the specified redshift.
 
     Ref:

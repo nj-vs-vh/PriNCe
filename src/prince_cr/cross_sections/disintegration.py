@@ -1,4 +1,3 @@
-
 import numpy as np
 
 import prince_cr.config as config

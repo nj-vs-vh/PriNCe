@@ -54,9 +54,7 @@ def get_2Dinterp_object(xgrid, ygrid, zgrid, xbins=None, **kwargs):
         ygrid (numpy.array): y values of function
     """
     if (xgrid.shape[0], ygrid.shape[0]) != zgrid.shape:
-        raise Exception(
-            f"x and y grid do not match z grid shape: {(xgrid.shape, ygrid.shape)} != {zgrid.shape}"
-        )
+        raise Exception(f"x and y grid do not match z grid shape: {(xgrid.shape, ygrid.shape)} != {zgrid.shape}")
 
     if "kx" not in kwargs:
         kwargs["kx"] = 1
@@ -407,7 +405,7 @@ class PrinceProgressBar:
     python scripts using the bar_type argument."""
 
     def __init__(self, bar_type=None, nsteps=None):
-        if bar_type == None or bar_type == False:
+        if bar_type == None or bar_type is False:
             self.pbar = None
         elif bar_type == "notebook":
             from tqdm import tqdm_notebook as tqdm

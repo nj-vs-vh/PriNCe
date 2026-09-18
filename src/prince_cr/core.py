@@ -17,9 +17,8 @@ class PriNCeRun:
     and it is inteded to be passed to further classes via `self`.
     """
 
-    def __init__(self, *args, **kwargs):
-        if "max_mass" in kwargs:
-            max_mass = kwargs.pop("max_mass", config.max_mass)
+    def __init__(self, **kwargs):
+        max_mass = kwargs.pop("max_mass", config.max_mass)
 
         # Initialize energy grid
         if config.grid_scale == "E":

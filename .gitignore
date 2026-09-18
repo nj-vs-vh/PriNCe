@@ -13,3 +13,4 @@ build/
 sandbox_*
 /uv.lock
 src/prince_cr/data/prince_db_05.h5
+*.npy

@@ -4,6 +4,7 @@ import numpy as np
 
 import prince_cr.config as config
 from prince_cr.cosmology import H
+from prince_cr.cr_sources import CosmicRaySource
 from prince_cr.data import PRINCE_UNITS, EnergyGrid
 from prince_cr.util import info
 
@@ -190,7 +191,7 @@ class UHECRPropagationSolver:
         self.result = None
         self.dim_states = prince_run.dim_states
 
-        self.list_of_sources = []
+        self.list_of_sources: list[CosmicRaySource] = []
 
         self.diff_operator = DifferentialOperator(prince_run.cr_grid, prince_run.spec_man.nspec).operator
         self.semi_lag_solver = SemiLagrangianSolver(prince_run.cr_grid)
@@ -222,10 +223,10 @@ class UHECRPropagationSolver:
     def add_source_class(self, source_instance):
         self.list_of_sources.append(source_instance)
 
-    def dldz(self, z):
+    def dldz(self, z: np.ndarray):
         return -1.0 / ((1.0 + z) * H(z) * PRINCE_UNITS.cm2sec)
 
-    def injection(self, dz, z):
+    def injection(self, dz: float, z: np.ndarray | float):
         """This needs to return the injection rate
         at each redshift value z"""
         f = self.dldz(z) * dz * PRINCE_UNITS.cm2sec
@@ -447,7 +448,7 @@ class UHECRPropagationSolverBDF(UHECRPropagationSolver):
     def __init__(self, *args, **kwargs):
         self.atol = kwargs.pop("atol", 1e40)
         self.rtol = kwargs.pop("rtol", 1e-10)
-        super(UHECRPropagationSolverBDF, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
     def _init_solver(self, dz):
         initial_state = np.zeros(self.dim_states)
@@ -456,7 +457,10 @@ class UHECRPropagationSolverBDF(UHECRPropagationSolver):
         self.current_z_rates = self.initial_z
 
         # find the maximum injection and reduce the system by this
-        self.red_idx = np.nonzero(self.injection(1.0, 0.0))[0].max()
+        try:
+            self.red_idx = np.nonzero(self.injection(1.0, 0.0))[0].max()
+        except Exception:
+            self.red_idx = self.injection(1.0, 0.0).size - 1
 
         # Convert csr_matrix from GPU to scipy
         try:

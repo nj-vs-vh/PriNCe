@@ -339,9 +339,7 @@ class CrossSectionBase(metaclass=ABCMeta):
             info(10, dbg_indent(reclev), "Entering with", first_mo, da)
 
             if da not in spec_data:
-                info(
-                    3, dbg_indent(reclev), f"daughter {da} unknown, forcing beta decay. Not Implemented yet!!"
-                )
+                info(3, dbg_indent(reclev), f"daughter {da} unknown, forcing beta decay. Not Implemented yet!!")
                 return
 
             # Daughter is stable. Add it to the new dictionary and terminate
@@ -525,8 +523,7 @@ class CrossSectionBase(metaclass=ABCMeta):
 
         elif (mother, daughter) not in self._incl_tab:
             raise Exception(
-                self.__class__.__name__
-                + f"::({mother},{daughter}) combination not in inclusive cross sections"
+                self.__class__.__name__ + f"::({mother},{daughter}) combination not in inclusive cross sections"
             )
 
         # If _nonel_tab contains tuples of (egrid, cs) return tuple
